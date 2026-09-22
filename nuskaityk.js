@@ -35,16 +35,38 @@ async function uzklausa(url) { // -> {status, body: Buffer}
     }
     return { status: r.status, body };
   }
-  const out = execFileSync('python3', [path.join(ROOT, 'gauk.py'), url], { maxBuffer: 64e6 });
-  const nl = out.indexOf(10);
-  return { status: +out.subarray(0, nl).toString(), body: out.subarray(nl + 1) };
+  if (METODAS === 'cffi') {
+    const out = execFileSync('python3', [path.join(ROOT, 'gauk.py'), url], { maxBuffer: 64e6 });
+    const nl = out.indexOf(10);
+    const r = { status: +out.subarray(0, nl).toString(), body: out.subarray(nl + 1) };
+    if (r.status !== 403) return r;
+    log('403 ir su curl_cffi:', r.body.toString('utf8').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 160));
+    log('perjungiu į tikrą naršyklę (Playwright Chromium)');
+    execSync('npm install --no-save playwright && npx playwright install --with-deps chromium', { stdio: 'inherit' }); METODAS = 'pw';
+    return uzklausa(url);
+  }
+  // Playwright: tikra naršyklė, praeina "Tikriname jūsų naršyklę" patikrą (jei tai ne captcha)
+  if (!PW.page) {
+    const { chromium } = require('playwright');
+    PW.browser = await chromium.launch({ headless: true, args: ['--disable-blink-features=AutomationControlled'] });
+    PW.ctx = await PW.browser.newContext({ userAgent: HDR['User-Agent'], locale: 'lt-LT', viewport: { width: 1366, height: 900 } });
+    PW.page = await PW.ctx.newPage();
+  }
+  if (/\.jpg(\?|$)/i.test(url)) { const r = await PW.ctx.request.get(url, { headers: { Referer: 'https://autoplius.lt/' } }); return { status: r.status(), body: Buffer.from(await r.body()) }; }
+  const resp = await PW.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  let status = resp ? resp.status() : 0, html = await PW.page.content();
+  for (let i = 0; i < 6 && /Tikriname jūsų naršyklę|Prašome palaukti/i.test(html); i++) {
+    await sleep(3000); html = await PW.page.content(); status = 200;
+  }
+  if (/Tikriname jūsų naršyklę|Prašome palaukti/i.test(html)) { log('naršyklės patikra nepraeina:', html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 300)); status = 403; }
+  return { status, body: Buffer.from(html, 'utf8') };
 }
+const PW = {};
 async function get(u, bin) {
   const url = /^https?:/.test(u) ? u : 'https://autoplius.lt' + u;
   for (let a = 0; a < 4; a++) {
     const r = await uzklausa(url);
     if (r.status === 429) { limitas++; log('429 — autoplius limitas, laukiu 5 min'); await sleep(300000); continue; }
-    if (r.status === 403 && a === 0) { log('403 ir su curl_cffi:', r.body.toString('utf8').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200)); }
     if (r.status < 200 || r.status >= 300) throw new Error('HTTP ' + r.status + ' ' + u);
     return bin ? r.body : r.body.toString('utf8');
   }
@@ -140,4 +162,5 @@ function detale(html) {
   require('child_process').execSync('node build.js "' + ROOT + '" "' + ROOT + '"', { stdio: 'inherit' });
   fs.writeFileSync(path.join(ROOT, 'zurnalas.txt'), `${data}: skelbimų ${viso}, naujų ${naujiIds.length}, detalių ${detN}, dingo ${dingo}, nuotraukų ${fotoN}, 429 kartų ${limitas}\n` + (fs.existsSync(path.join(ROOT, 'zurnalas.txt')) ? fs.readFileSync(path.join(ROOT, 'zurnalas.txt'), 'utf8').split('\n').slice(0, 60).join('\n') : ''));
   log('baigta');
+  if (PW.browser) await PW.browser.close();
 })().catch(e => { console.error('KLAIDA', e); process.exit(1); });
