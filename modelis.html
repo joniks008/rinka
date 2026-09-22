@@ -1,0 +1,181 @@
+<meta charset="utf-8">
+<title>Skelbimai pagal modelį</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="stilius.css">
+
+<main class="turinys">
+    <div class="antraste">
+    <div><h1 id="h1"></h1><div class="sub" id="sub"></div></div>
+  </div>
+  <div class="stat-juosta" id="statai"></div>
+
+  <div class="su-filtrais">
+    <aside class="filtrai">
+      <h3>Variantas</h3>
+      <div id="f-variantai"></div>
+      <h3>Metai</h3>
+      <div class="du"><select id="f-m-nuo"></select><select id="f-m-iki"></select></div>
+      <h3>Kaina, €</h3>
+      <div class="du"><input id="f-k-nuo" type="number" placeholder="nuo" step="500"><input id="f-k-iki" type="number" placeholder="iki" step="500"></div>
+      <h3>Rida iki, km</h3>
+      <input id="f-rida" type="number" placeholder="pvz. 150000" step="10000">
+      <h3>Kuras</h3>
+      <div id="f-kuras"></div>
+      <h3>Būklė</h3>
+      <label class="eil"><input type="checkbox" id="f-svarus" checked> Tik be defektų (slėpti daužtus)</label>
+      <label class="eil"><input type="checkbox" id="f-lt"> Tik jau Lietuvoje</label>
+      <label class="eil"><input type="checkbox" id="f-parduoti" checked> Rodyti pažymėtus „parduota“</label>
+      <h3>Kilmė</h3>
+      <select id="f-kilme"><option value="">Visi</option><option value="imp">Iš JAV / Kanados</option><option value="eu">Ne iš JAV / Kanados</option></select>
+      <h3>Kita</h3>
+      <label class="eil"><input type="checkbox" id="f-pvm"> Tik su PVM sąskaita</label>
+      <label class="eil"><input type="checkbox" id="f-geri"> Tik pigiau nei rinka</label>
+      <label class="eil"><input type="checkbox" id="f-itart" checked> Rodyti įtartinai pigius</label>
+      <button class="valyti" id="f-valyti">Išvalyti filtrus</button>
+    </aside>
+
+    <div>
+      <div class="irankiai">
+        <div class="tabai"><button class="aktyvi" data-t="sk">Skelbimai</button><button data-t="an">Analizė</button></div>
+        <div class="kiek num" id="kiek"></div>
+        <div class="rikiuoti" id="rik-blokas">Rikiuoti: <select id="rik">
+          <option value="kaina">Kaina: pigiausi pirma</option>
+          <option value="nuok">Nuolaida nuo rinkos (didžiausia pirma)</option>
+          <option value="kaina-d">Kaina: brangiausi pirma</option>
+          <option value="rida">Rida: mažiausia pirma</option>
+          <option value="metai">Metai: naujausi pirma</option>
+        </select></div>
+      </div>
+
+      <div id="t-sk">
+        <div class="sk-sarasas" id="sarasas"></div>
+        <button class="daugiau" id="daugiau" hidden>Rodyti daugiau</button>
+      </div>
+
+      <div id="t-an" hidden>
+        <div class="graf-tinklas">
+          <div class="graf platus"><h3>Kaina ir rida</h3><div class="apr">Kiekvienas taškas — skelbimas (spausk — atsidarys). Punktyras — rinkos kreivė tam variantui. Taškai žemiau kreivės — pigesni už rinką.</div><div id="g-sklaida"></div></div>
+          <div class="graf"><h3>Variantai</h3><div class="apr">Kiek skelbimų ir kokia vidurinė (medianinė) kaina.</div><div class="lent-r"><table class="lent" id="l-variantai"></table></div></div>
+          <div class="graf"><h3>Medianinė kaina pagal metus</h3><div class="apr">Pagal atrinktus skelbimus.</div><div id="g-metai"></div></div>
+          <div class="graf"><h3>Kiek skelbimų kokioje kainoje</h3><div class="apr">Kainų pasiskirstymas — kur „tirščiausia“ rinka.</div><div id="g-hist"></div></div>
+          <div class="graf"><h3>Kiek dienų kabo skelbimai</h3><div class="apr">Nuo įdėjimo (pagal skelbimo ID). Dešinė „uodega“ — užsistovėję skelbimai.</div><div id="g-dienos"></div></div>
+          <div class="graf"><h3>Per kiek dienų parduota</h3><div class="apr">Parduoti ir dingę iš rinkos skelbimai: nuo įdėjimo iki dingimo. Kaupiasi su kiekvienu kasdieniu nuskaitymu.</div><div id="g-pard-d"></div></div>
+          <div class="graf"><h3>Kaina ir kiek dienų kabo</h3><div class="apr">Ar brangesni kabo ilgiau? Kiekvienas taškas — skelbimas.</div><div id="g-kd"></div></div>
+          <div class="graf"><h3>Rida</h3><div class="apr">Ridos pasiskirstymas.</div><div id="g-rida"></div></div>
+          <div class="graf"><h3>Miestai</h3><div class="apr">Kur daugiausia pasiūlos.</div><div id="g-miestai"></div></div>
+          <div class="graf"><h3>Daužti ir importai</h3><div class="apr">Pagal visus šio modelio skelbimus (ne tik atrinktus).</div><div id="g-bukle"></div></div>
+          <div class="graf"><h3>Pardavėjai</h3><div class="apr">Įmonės (su PVM sąskaita) ir privatūs.</div><div id="g-pard"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="duomenys.js"></script>
+<script src="bendra.js"></script>
+<script>
+let M = modelis((location.hash || '#q7a').slice(1)) || RM.modeliai[0];
+virsus('modelis', M.id);
+let rodoma = 20, tab = 'sk';
+
+function juosta() {}
+function fPradzia() {
+  const rows = RM.skelbimai.filter(s => s.modelis === M.id);
+  $('h1').textContent = M.pav + ' · ' + M.karta;
+  $('sub').textContent = rows.length + ' skelbimų autoplius.lt · ' + M.variantai.length + ' variantai';
+  $('f-variantai').innerHTML = M.variantai.map((v, i) => `<label class="eil"><input type="checkbox" class="f-var" value="${esc(v.pav)}" checked> <i style="width:9px;height:9px;border-radius:50%;background:${SPALVOS[i % 8]};flex:none"></i>${esc(v.pav)}<span class="n">${v.n}</span></label>`).join('');
+  const metai = [...new Set(rows.map(r => r.metai))].sort();
+  $('f-m-nuo').innerHTML = metai.map(y => `<option value="${y}">${y}</option>`).join('');
+  $('f-m-iki').innerHTML = metai.map(y => `<option value="${y}">${y}</option>`).join('');
+  $('f-m-iki').value = metai[metai.length - 1];
+  const kurai = [...new Set(rows.map(r => r.kuras))].sort();
+  $('f-kuras').innerHTML = kurai.map(k => `<label class="eil"><input type="checkbox" class="f-kur" value="${esc(k)}" checked> ${esc(k)}<span class="n">${rows.filter(r => r.kuras === k).length}</span></label>`).join('');
+  ['f-k-nuo', 'f-k-iki', 'f-rida'].forEach(id => $(id).value = '');
+  $('f-kilme').value = '';
+  $('f-pvm').checked = false; $('f-geri').checked = false; $('f-itart').checked = true; $('f-parduoti').checked = true; $('f-svarus').checked = true; $('f-lt').checked = false;
+}
+function atrink() {
+  const vars = new Set([...document.querySelectorAll('.f-var:checked')].map(i => i.value));
+  const kur = new Set([...document.querySelectorAll('.f-kur:checked')].map(i => i.value));
+  const mn = +$('f-m-nuo').value, mi = +$('f-m-iki').value;
+  const kn = +$('f-k-nuo').value || 0, ki = +$('f-k-iki').value || Infinity, rd = +$('f-rida').value || Infinity;
+  return RM.skelbimai.filter(s => s.modelis === M.id && vars.has(s.variantas) && kur.has(s.kuras)
+    && s.metai >= mn && s.metai <= mi && s.kaina >= kn && s.kaina <= ki && (s.rida == null || s.rida <= rd)
+    && (!$('f-pvm').checked || s.pvm) && (!$('f-geri').checked || geras(s))
+    && (!$('f-svarus').checked || !s.dauztas) && (!$('f-lt').checked || !s.ne_lt)
+    && ($('f-kilme').value === '' || ($('f-kilme').value === 'imp') === s.importas)
+    && ($('f-itart').checked || !itartinas(s)) && ($('f-parduoti').checked || !s.parduota));
+}
+function rikiuok(e) {
+  const r = $('rik').value;
+  const f = { nuok: (a, b) => (a.nuokrypis ?? 999) - (b.nuokrypis ?? 999), kaina: (a, b) => a.kaina - b.kaina, 'kaina-d': (a, b) => b.kaina - a.kaina, rida: (a, b) => (a.rida ?? 1e9) - (b.rida ?? 1e9), metai: (a, b) => b.metai - a.metai || (a.rida ?? 1e9) - (b.rida ?? 1e9) }[r];
+  return [...e].sort(f);
+}
+function piesk() {
+  const e = rikiuok(atrink());
+  const visi = RM.skelbimai.filter(s => s.modelis === M.id);
+  $('kiek').innerHTML = `${e.length} <span>iš ${visi.length} skelbimų</span>`;
+  const kainos = e.map(r => r.kaina), ridos = e.map(r => r.rida).filter(Boolean);
+  const pard = parduotieji(M.id);
+  $('statai').innerHTML = [
+    ['Skelbimų atrinkta', e.length, ''], ['Medianinė kaina', eur(mediana(kainos)), '', kainos.length ? 'nuo ' + eur(Math.min(...kainos)) + ' iki ' + eur(Math.max(...kainos)) : ''],
+    ['Vidutinė rida', km(vid(ridos)), ''],
+    ['Kabo rinkoje (mediana)', '~' + dienosTxt(mediana(e.map(s => s.dienos))), ''],
+    ['Parduota per (mediana)', pard.length ? '~' + dienosTxt(mediana(pard.map(s => s.dienos))) : 'nėra duomenų', 'gera', pard.length ? pard.length + ' parduota / dingo iš rinkos' : 'kaupiasi kasdien'],
+    ['Pigiau nei rinka', e.filter(geras).length, 'gera'], ['Daužtų šio modelio', visi.filter(s => s.dauztas).length + ' / ' + visi.length, 'bloga'],
+  ].map(x => `<div class="stat ${x[2]}"><div class="pav">${x[0]}</div><div class="sk num" style="font-size:${String(x[1]).length > 12 ? 15 : 24}px;white-space:nowrap">${x[1]}</div>${x[3] ? '<div class="past">' + x[3] + '</div>' : ''}</div>`).join('');
+  if (tab === 'sk') {
+    $('sarasas').innerHTML = e.slice(0, rodoma).map(kortele).join('') || '<div class="tuscia">Pagal šiuos filtrus skelbimų nėra.</div>';
+    $('daugiau').hidden = e.length <= rodoma;
+    $('daugiau').textContent = `Rodyti daugiau (liko ${Math.max(0, e.length - rodoma)})`;
+  } else analize(e);
+}
+function analize(e) {
+  sklaida($('g-sklaida'), e, M.variantai, M);
+  const vt = M.variantai.map(v => { const r = e.filter(s => s.variantas === v.pav); return { v, r }; }).filter(x => x.r.length);
+  $('l-variantai').innerHTML = '<tr><th>Variantas</th><th class="r">Skelb.</th><th class="r">Mediana</th><th class="r">Nuo</th><th class="r">Iki</th><th class="r">Vid. rida</th></tr>' +
+    vt.map(({ v, r }) => `<tr><td><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${SPALVOS[M.variantai.indexOf(v) % 8]};margin-right:6px"></i>${esc(v.pav)}</td><td class="r">${r.length}</td><td class="r"><b>${eur(mediana(r.map(s => s.kaina)))}</b></td><td class="r">${eur(Math.min(...r.map(s => s.kaina)))}</td><td class="r">${eur(Math.max(...r.map(s => s.kaina)))}</td><td class="r">${km(vid(r.map(s => s.rida).filter(Boolean)))}</td></tr>`).join('');
+  const metai = [...new Set(e.map(s => s.metai))].sort();
+  stulpeliai($('g-metai'), metai.map(y => { const r = e.filter(s => s.metai === y); return { pav: String(y), val: mediana(r.map(s => s.kaina)), n: r.length }; }), eur);
+  histograma($('g-hist'), e.map(s => s.kaina), v => Math.round(v / 1000) + ' k€');
+  histograma($('g-rida'), e.map(s => s.rida).filter(Boolean), v => Math.round(v / 1000) + ' tūkst.');
+  histograma($('g-dienos'), e.map(s => s.dienos), v => Math.round(v) + ' d.');
+  histograma($('g-pard-d'), parduotieji(M.id).map(s => s.dienos), v => Math.round(v) + ' d.');
+  kainaDienos($('g-kd'), e);
+  const visiM = RM.skelbimai.filter(s => s.modelis === M.id);
+  stulpeliai($('g-bukle'), [
+    { pav: 'Nedaužti Lietuvoje', val: visiM.filter(s => !s.dauztas).length },
+    { pav: 'Daužti', val: visiM.filter(s => s.dauztas && !s.ne_lt).length },
+    { pav: 'Dar ne Lietuvoje', val: visiM.filter(s => s.ne_lt).length },
+    { pav: 'Iš JAV / Kanados', val: visiM.filter(s => s.importas).length },
+    { pav: 'Su PVM sąskaita', val: visiM.filter(s => s.pvm).length },
+  ], v => v + ' skelb.', 'var(--s5)');
+  const mc = {}; e.forEach(s => { const m = s.miestas || 'nenurodyta'; mc[m] = (mc[m] || 0) + 1; });
+  stulpeliai($('g-miestai'), Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p, n]) => ({ pav: p, val: n })), v => v + ' skelb.', 'var(--s6)');
+  const im = e.filter(s => s.pvm), pr = e.filter(s => !s.pvm);
+  stulpeliai($('g-pard'), [{ pav: 'Įmonės (PVM)', val: im.length }, { pav: 'Privatūs', val: pr.length }].map(x => ({ ...x })), v => v + ' skelb.', 'var(--s2)');
+  $('g-pard').insertAdjacentHTML('beforeend', `<div class="legenda"><span>Įmonių mediana: <b>${eur(mediana(im.map(s => s.kaina)))}</b></span><span>Privačių mediana: <b>${eur(mediana(pr.map(s => s.kaina)))}</b></span></div>`);
+}
+function kainaDienos(el, rows) {
+  const t = rows.filter(r => r.kaina && r.dienos != null);
+  if (t.length < 3) { el.innerHTML = '<div class="tuscia">Per mažai duomenų</div>'; return; }
+  const W = 420, H = 230, L = 50, R = 14, T = 10, B = 30;
+  const xmax = Math.max(...t.map(r => r.dienos)) * 1.05 || 1, ymin = Math.min(...t.map(r => r.kaina)) * 0.9, ymax = Math.max(...t.map(r => r.kaina)) * 1.04;
+  const X = v => L + v / xmax * (W - L - R), Y = v => T + (1 - (v - ymin) / (ymax - ymin)) * (H - T - B);
+  let s = svgPradzia(W, H, 'Kaina ir dienos rinkoje');
+  s += asys(X, Y, 0, xmax, ymin, ymax, W, H, L, R, T, B, v => Math.round(v) + ' d.', v => Math.round(v / 1000) + ' k€');
+  t.forEach((r, i) => { s += `<circle cx="${X(r.dienos).toFixed(1)}" cy="${Y(r.kaina).toFixed(1)}" r="4" fill="${r.dauztas ? 'var(--bloga)' : 'var(--akcentas)'}" fill-opacity=".75" data-i="${i}" style="cursor:pointer"/>`; });
+  el.style.position = 'relative'; el.innerHTML = s + '</svg><div class="tt" hidden></div>';
+  tooltipai(el, t.map(r => ({ ...r, tt: `${r.metai} · ${km(r.rida)} · ${eur(r.kaina)} · kabo ~${dienosTxt(r.dienos)}` })));
+}
+document.querySelectorAll('.tabai button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabai button').forEach(x => x.classList.toggle('aktyvi', x === b));
+  tab = b.dataset.t; $('t-sk').hidden = tab !== 'sk'; $('t-an').hidden = tab !== 'an'; $('rik-blokas').hidden = tab !== 'sk'; piesk();
+}));
+document.querySelector('.filtrai').addEventListener('input', () => { rodoma = 20; piesk(); });
+$('rik').addEventListener('change', () => { rodoma = 20; piesk(); });
+$('daugiau').addEventListener('click', () => { rodoma += 20; piesk(); });
+$('f-valyti').addEventListener('click', () => { fPradzia(); rodoma = 20; piesk(); });
+window.addEventListener('hashchange', () => { M = modelis(location.hash.slice(1)) || M; document.querySelectorAll('.virsus-m a').forEach(a => a.classList.toggle('aktyvi', a.getAttribute('href') === '#' + M.id || a.getAttribute('href').endsWith('#' + M.id))); juosta(); fPradzia(); rodoma = 20; piesk(); window.scrollTo(0, 0); });
+juosta(); fPradzia(); piesk();
+</script>

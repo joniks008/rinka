@@ -1,0 +1,165 @@
+<meta charset="utf-8">
+<title>Savikainos skaičiuoklė</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="stilius.css">
+
+<main class="turinys">
+  <div class="antraste">
+    <div><h1>Savikainos skaičiuoklė</h1><div class="sub">Trys žingsniai: kur perki → kiek moki → koks auto. Apačioje — ar apsimoka, palyginus su Lietuvos rinka.</div></div>
+  </div>
+
+  <div class="zingsniai">
+    <div>
+      <section class="zing">
+        <h2><i>1</i>Kur perki</h2>
+        <div class="laukai">
+          <label class="lauka">Aukcionas<select id="aukcionas"><option>IAAI</option><option>Copart</option></select></label>
+          <label class="lauka">Aukciono lokacija<input id="lokacija" list="lok-sarasas" placeholder="pradėk rašyti, pvz. HOUSTON" autocomplete="off"><datalist id="lok-sarasas"></datalist></label>
+          <div class="lauka pilnas"><small id="lok-info" style="color:var(--antrinis)">Pasirink lokaciją iš sąrašo — parodys uostą ir vidaus transporto kainą.</small></div>
+        </div>
+      </section>
+
+      <section class="zing">
+        <h2><i>2</i>Kiek moki aukcione</h2>
+        <div class="laukai">
+          <label class="lauka">Statymas (bid), $<input id="bidas" type="number" value="15700" step="100"></label>
+          <label class="lauka">Kursas USD → EUR<input id="kursas" type="number" step="0.001" value="0.871"></label>
+          <label class="lauka" id="fee-laukas" hidden>Aukciono mokestis, $ <small>(įrašyk pagal aukciono lentelę)</small><input id="fee-ranka" type="number" value="900" step="10"></label>
+          <div class="lauka pilnas"><small id="fee-pastaba" style="color:var(--antrinis)"></small></div>
+        </div>
+      </section>
+
+      <section class="zing">
+        <h2><i>3</i>Koks automobilis</h2>
+        <div class="laukai">
+          <label class="lauka">Modelis<select id="modelis"></select></label>
+          <label class="lauka">Variantas<select id="variantas"></select></label>
+          <label class="lauka">Metai<input id="metai" type="number" value="2019" min="2015" max="2026"></label>
+          <label class="lauka">Rida, km<input id="rida" type="number" value="140000" step="5000"></label>
+          <label class="lauka">Dydis jūrai<select id="dydis"><option value="l" selected>Large — SUV / krosoveris</option><option value="r">Regular — sedanas</option><option value="o">Oversize — pikapas / didelis SUV</option></select></label>
+          <label class="lauka">Kilmė (VIN pirmas simbolis)<select id="kilme"><option value="0">1 / 4 / 5 — pagaminta JAV (muitas 0 %)</option><option value="10">Kita — ne JAV (muitas 10 %)</option></select></label>
+        </div>
+      </section>
+
+      <section class="zing">
+        <h2><i>4</i>Išlaidos Lietuvoje</h2>
+        <div class="laukai">
+          <label class="lauka">Europinimas, €<input id="europinimas" type="number" value="200" step="10"></label>
+          <label class="lauka">Uostas / brokeris / terminalas, €<input id="uostas" type="number" value="0" step="50"></label>
+          <label class="lauka">Remontas, €<input id="remontas" type="number" value="0" step="100"></label>
+          <label class="lauka">Kita (draudimas, storage…), €<input id="kita" type="number" value="0" step="50"></label>
+          <label class="eil pilnas" style="display:flex;align-items:center;gap:8px;font-size:13.5px"><input type="checkbox" id="lempos"> Lempų litavimas (+120 €)</label>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <div class="rez">
+        <div class="did"><span class="pav">Pilna savikaina</span><span class="sk num" id="viso"></span></div>
+        <table><tbody id="lent"></tbody></table>
+        <div class="pelnas" id="pelnas"></div>
+        <div class="pastaba" id="pelnas-apr" style="margin-top:10px"></div>
+        <div class="pastaba" style="margin-top:12px">Importo PVM 21 % (<span id="pvm-suma"></span>) sumokamas muitinėje, bet susigrąžinamas per MB — į savikainą netraukiamas. Pardavimo PVM 21 % atiduodamas VMI, todėl pelnas skaičiuojamas nuo kainos be PVM. Jūros ir vidaus transporto tarifai — Atlantic Express (galioja iki 2026-09-30).</div>
+      </div>
+      <section class="zing" style="margin-top:14px">
+        <h2 style="margin-bottom:4px">Panašūs skelbimai Lietuvoje</h2>
+        <div class="pastaba" id="pan-apr"></div>
+        <div class="mini-sk" id="panasus"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="duomenys.js"></script>
+<script src="atlantic.js"></script>
+<script src="bendra.js"></script>
+<script>
+virsus('skaiciuokle');
+const A = window.ATLANTIC;
+const LS = { get: k => { try { return localStorage.getItem('sk2_' + k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem('sk2_' + k, v); } catch (e) { } } };
+const IDS = ['aukcionas', 'lokacija', 'bidas', 'kursas', 'fee-ranka', 'modelis', 'variantas', 'metai', 'rida', 'dydis', 'kilme', 'europinimas', 'uostas', 'remontas', 'kita', 'lempos'];
+
+$('modelis').innerHTML = RM.modeliai.map(m => `<option value="${m.id}">${esc(pavadinimas(m))}</option>`).join('');
+function pildykVariantus() {
+  const m = modelis($('modelis').value);
+  $('variantas').innerHTML = m.variantai.map(v => `<option value="${esc(v.pav)}">${esc(v.pav)} (${v.n})</option>`).join('');
+}
+function pildykLok() {
+  const auk = $('aukcionas').value;
+  $('lok-sarasas').innerHTML = A.lokacijos.filter(l => l.a === auk).map(l => `<option value="${esc(l.v)}"></option>`).join('');
+}
+function rastaLok() {
+  const auk = $('aukcionas').value, v = $('lokacija').value.trim().toLowerCase();
+  if (!v) return null;
+  return A.lokacijos.find(l => l.a === auk && l.v.toLowerCase() === v) || A.lokacijos.find(l => l.a === auk && l.v.toLowerCase().startsWith(v));
+}
+function aukcionoMokestis(bid, auk) {
+  if (auk === 'IAAI' && bid >= 15000) { $('fee-laukas').hidden = true; $('fee-pastaba').textContent = 'IAAI (licencijuotas pirkėjas): 7,5 % nuo kainos + $160 internet bid + $105 service + $15 environmental + $20 title.'; return bid * 0.075; }
+  $('fee-laukas').hidden = false;
+  $('fee-pastaba').textContent = auk === 'IAAI' ? 'Bidas žemiau $15 000 — IAAI mokestis pagal pakopų lentelę, įrašyk tikslų.' : 'Copart mokesčių lentelė skiriasi nuo IAAI — numatyta ~7,5 %, pasitikslink Copart fee calculator.';
+  if (!$('fee-ranka').dataset.set) { $('fee-ranka').value = Math.round(bid * 0.075); }
+  return +$('fee-ranka').value || 0;
+}
+function rinkosKaina(m, varPav, metai, rida) {
+  const v = m.variantai.find(x => x.pav === varPav); const f = (v && v.fit) || m.fit;
+  if (!f) return null;
+  return Math.round(Math.exp(f.a + f.b * rida / 100000 + f.c * (2026 - metai)));
+}
+function skaiciuok() {
+  const bid = +$('bidas').value || 0, kursas = +$('kursas').value || 0.871;
+  const lok = rastaLok(), dydis = $('dydis').value, muitoProc = +$('kilme').value;
+  $('lok-info').textContent = lok ? `Uostas: ${lok.u} · vidaus transportas iki uosto ${usd(lok.k)}` : 'Pasirink lokaciją iš sąrašo — parodys uostą ir vidaus transporto kainą.';
+  const fee = aukcionoMokestis(bid, $('aukcionas').value), fiks = 300;
+  const vidaus = lok ? lok.k : 0, jura = lok ? (A.uostai[lok.u] ? A.uostai[lok.u][dydis] : 0) : 0;
+  const usdViso = bid + fee + fiks + vidaus + jura, eurViso = usdViso * kursas, muitas = eurViso * muitoProc / 100;
+  const ikiKlaipedos = eurViso + muitas;
+  const lt = (+$('europinimas').value || 0) + (+$('uostas').value || 0) + (+$('remontas').value || 0) + (+$('kita').value || 0) + ($('lempos').checked ? 120 : 0);
+  const pilna = ikiKlaipedos + lt;
+  $('viso').textContent = eur(pilna);
+  $('pvm-suma').textContent = eur(ikiKlaipedos * 0.21);
+  const eil = [
+    ['grupe', 'Aukcionas ir transportas (USD)'],
+    ['', 'Statymas (bid)', usd(bid)], ['', 'Aukciono mokestis', usd(fee)], ['', 'Bid + service + env + title', usd(fiks)],
+    ['', 'Vidaus transportas' + (lok ? ' → ' + lok.u : ''), usd(vidaus)], ['', 'Jūra → Klaipėda', usd(jura)],
+    ['suma', 'Viso USD', usd(usdViso)],
+    ['grupe', 'Eurais'],
+    ['', 'Viso EUR (× ' + kursas + ')', eur(eurViso)], ['', 'Muitas ' + muitoProc + ' %', eur(muitas)],
+    ['suma', 'Savikaina iki Klaipėdos', eur(ikiKlaipedos)],
+    ['grupe', 'Lietuvoje'],
+    ['', 'Europinimas', eur(+$('europinimas').value || 0)], ['', 'Uostas / brokeris', eur(+$('uostas').value || 0)],
+    ['', 'Remontas', eur(+$('remontas').value || 0)], ['', 'Kita', eur(+$('kita').value || 0)], ['', 'Lempų litavimas', eur($('lempos').checked ? 120 : 0)],
+  ];
+  $('lent').innerHTML = eil.map(x => x[0] === 'grupe' ? `<tr class="grupe"><td colspan="2">${x[1]}</td></tr>` : `<tr class="${x[0]}"><td>${x[1]}</td><td>${x[2]}</td></tr>`).join('');
+  // palyginimas su rinka
+  const m = modelis($('modelis').value), varPav = $('variantas').value, metai = +$('metai').value || 2019, rida = +$('rida').value || 0;
+  const rk = rinkosKaina(m, varPav, metai, rida);
+  const rows = RM.skelbimai.filter(s => s.modelis === m.id && s.variantas === varPav && !s.dauztas);
+  const med = mediana(rows.map(s => s.kaina));
+  if (rk) {
+    const bePvm = rk / 1.21, pelnas = bePvm - pilna;
+    $('pelnas').className = 'pelnas' + (pelnas < 0 ? ' minus' : '');
+    $('pelnas').innerHTML = `<div><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Tikėtinas pelnas prieš mokesčius</div><div style="font-size:12.5px">rinkos kaina ${eur(rk)} → be PVM ${eur(bePvm)} − savikaina ${eur(pilna)}</div></div><div class="sk num">${(pelnas >= 0 ? '+' : '−') + eur(Math.abs(pelnas))}</div>`;
+    $('pelnas-apr').innerHTML = `<b>${esc(pavadinimas(m))} · ${esc(varPav)}</b>, ${metai} m., ${km(rida)}: Lietuvoje toks auto parduodamas už maždaug <b>${eur(rk)}</b> (nedaužtų šio varianto skelbimų mediana — ${eur(med)}, ${rows.length} skelb.). Pelno marža <b>${Math.round(pelnas / pilna * 100)} %</b> nuo savikainos.`;
+  } else {
+    $('pelnas').className = 'pelnas'; $('pelnas').innerHTML = '<div>Šiam variantui per mažai skelbimų rinkos kainai apskaičiuoti.</div>';
+    $('pelnas-apr').textContent = '';
+  }
+  // panašūs skelbimai: tas pats variantas, ±1 metai, rikiuota pagal artumą ridai ir kainą
+  const pan = rows.filter(s => Math.abs(s.metai - metai) <= 1 && !s.parduota).sort((a, b) => a.kaina - b.kaina).slice(0, 6);
+  $('pan-apr').textContent = pan.length ? `Pigiausi nedaužti ${varPav} skelbimai ${metai - 1}–${metai + 1} m. — su jais konkuruosi parduodamas.` : 'Tokių metų skelbimų šiam variantui dabar nėra.';
+  $('panasus').innerHTML = pan.map(s => `<a class="mini" href="${esc(s.nuoroda)}" target="_blank" rel="noopener">${fotoHtml(s)}<b class="num">${eur(s.kaina)}</b><span>${s.metai} · ${km(s.rida)} · ${esc(s.miestas || '')}</span><span class="nuok ${nuokrypioKlase(s).k}" style="font-size:11px;padding:2px 6px">${pct(s.nuokrypis)} nuo rinkos</span></a>`).join('');
+  IDS.forEach(id => LS.set(id, $(id).type === 'checkbox' ? ($(id).checked ? '1' : '0') : $(id).value));
+}
+// pradinės reikšmės
+pildykVariantus(); pildykLok();
+IDS.forEach(id => { const v = LS.get(id); if (v != null) { if ($(id).type === 'checkbox') $(id).checked = v === '1'; else $(id).value = v; } });
+if (LS.get('modelis')) pildykVariantus(); if (LS.get('variantas')) $('variantas').value = LS.get('variantas');
+if (LS.get('aukcionas')) pildykLok();
+IDS.forEach(id => $(id).addEventListener('input', () => {
+  if (id === 'aukcionas') { pildykLok(); delete $('fee-ranka').dataset.set; }
+  if (id === 'fee-ranka') $('fee-ranka').dataset.set = '1';
+  if (id === 'modelis') { pildykVariantus(); $('europinimas').value = modelis($('modelis').value).europinimas; }
+  skaiciuok();
+}));
+skaiciuok();
+</script>

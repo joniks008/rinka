@@ -1,0 +1,86 @@
+<meta charset="utf-8">
+<title>Parduota, daužti ir įtartini</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="stilius.css">
+
+<main class="turinys">
+  <div class="antraste">
+    <div><h1>Parduota, daužti ir įtartini</h1><div class="sub">Kas išėjo iš rinkos ir per kiek dienų (robotas kasdien tikrina, kas dingo), už kiek siūlomi daužti importai, ir kas per pigu, kad būtų tiesa.</div></div>
+  </div>
+  <div class="stat-juosta" id="statai"></div>
+
+  <div class="irankiai"><div class="rikiuoti" style="margin-left:0">Modelis: <select id="f-mod"><option value="">Visi</option></select></div></div>
+
+  <section class="sekc" style="margin-top:0">
+    <h2>Dingo iš rinkos — tikėtina parduota</h2>
+    <div class="apr">Robotas kasdien nuskaito autoplius. Skelbimas, kuris vakar buvo, o šiandien jo nebėra — greičiausiai parduotas (arba nuimtas). „Pardavė per“ — nuo skelbimo įdėjimo iki dingimo dienos. Rodoma paskutinė prašyta kaina.</div>
+    <div class="lent-r" style="margin-bottom:12px"><table class="lent" id="l-dingo"></table></div>
+    <div class="sk-sarasas" id="dingo"></div>
+    <button class="daugiau" id="daugiau-g" hidden>Rodyti daugiau</button>
+  </section>
+
+  <section class="sekc">
+    <h2>Pažymėta „Parduota“</h2>
+    <div class="apr">Pardavėjas pats pažymėjo skelbimą kaip parduotą. Paskutinė prašyta kaina — arčiausiai realios pardavimo kainos, o „rinkoje ~N d.“ — kiek laiko užtruko parduoti (nuo skelbimo įdėjimo).</div>
+    <div class="lent-r" style="margin-bottom:12px"><table class="lent" id="l-parduota"></table></div>
+    <div class="sk-sarasas" id="parduota"></div>
+  </section>
+
+  <section class="sekc">
+    <h2>Daužti ir dar neatplaukę</h2>
+    <div class="apr">Pardavėjas pažymėjo „Daužtas“, aprašyme parašyta apie daužimą, arba auto dar ne Lietuvoje (SDK kodo nėra). Tai neremontuotų importų kainos — tavo tiesioginė konkurencija ir orientyras, už kiek galima nusipirkti Lietuvoje neplaukiant į JAV.</div>
+    <div class="lent-r" style="margin-bottom:12px"><table class="lent" id="l-dauzti"></table></div>
+    <div class="sk-sarasas" id="dauzti"></div>
+    <button class="daugiau" id="daugiau-d" hidden>Rodyti daugiau</button>
+  </section>
+
+  <section class="sekc">
+    <h2>Įtartinai pigūs (nepažymėti kaip daužti)</h2>
+    <div class="apr">Daugiau nei 35 % žemiau rinkos, nors pardavėjas nenurodė defektų. Dažniausiai — nutylėtas daužimas, sukčiai arba klaida skelbime. Skaityk aprašymą.</div>
+    <div class="sk-sarasas" id="itartini"></div>
+  </section>
+</main>
+
+<script src="duomenys.js"></script>
+<script src="bendra.js"></script>
+<script>
+virsus('parduota');
+const S = RM.skelbimai, G = RM.dingo || [];
+$('f-mod').insertAdjacentHTML('beforeend', RM.modeliai.map(m => `<option value="${m.id}">${esc(pavadinimas(m))}</option>`).join(''));
+let rodD = 10, rodG = 10;
+function piesk() {
+  const f = $('f-mod').value, A = S.filter(s => !f || s.modelis === f);
+  const P = A.filter(s => s.parduota).sort((a, b) => a.modelis.localeCompare(b.modelis) || a.kaina - b.kaina);
+  const GG = G.filter(s => !f || s.modelis === f), PG = P.concat(GG);
+  const D = A.filter(s => s.dauztas).sort((a, b) => a.modelis.localeCompare(b.modelis) || a.kaina - b.kaina);
+  const I = A.filter(itartinas).sort((a, b) => a.nuokrypis - b.nuokrypis);
+  $('statai').innerHTML = [
+    ['Parduota / dingo', PG.length, PG.length ? 'parduota per ~' + dienosTxt(mediana(PG.map(s => s.dienos))) + ' (mediana)' : 'kaupiasi kasdien', 'gera'],
+    ['Dingo iš rinkos', GG.length, RM.nuskaitymu > 1 ? 'per ' + RM.nuskaitymu + ' nuskaitymus nuo ' + dataTxt(RM.pirmas) : 'pirmas nuskaitymas — dar nėra', ''],
+    ['Daužtų / dar ne LT', D.length, Math.round(D.length / Math.max(1, A.length) * 100) + ' % skelbimų', 'bloga'],
+    ['Daužtų kainos mediana', eur(mediana(D.map(s => s.kaina))), 'vs nedaužtų ' + eur(mediana(A.filter(svarus).map(s => s.kaina))), ''],
+    ['Įtartinai pigių', I.length, 'be pažymėtų defektų', 'bloga'],
+  ].map(x => `<div class="stat ${x[3]}"><div class="pav">${x[0]}</div><div class="sk num">${x[1]}</div><div class="past">${x[2]}</div></div>`).join('');
+  // dingę pagal modelį
+  const gm = RM.modeliai.map(m => ({ m, r: GG.filter(s => s.modelis === m.id) })).filter(x => x.r.length);
+  $('l-dingo').innerHTML = gm.length ? '<tr><th>Modelis</th><th class="r">Dingo</th><th class="r">Pardavė per (mediana)</th><th class="r">Greičiausiai</th><th class="r">Paskutinės kainos mediana</th><th class="r">Nuo – iki</th></tr>' +
+    gm.map(({ m, r }) => `<tr><td><b>${esc(pavadinimas(m))}</b></td><td class="r">${r.length}</td><td class="r"><b>~${dienosTxt(mediana(r.map(s => s.dienos)))}</b></td><td class="r">${dienosTxt(Math.min(...r.map(s => s.dienos)))}</td><td class="r"><b>${eur(mediana(r.map(s => s.kaina)))}</b></td><td class="r">${eur(Math.min(...r.map(s => s.kaina)))} – ${eur(Math.max(...r.map(s => s.kaina)))}</td></tr>`).join('') : '';
+  $('dingo').innerHTML = GG.slice(0, rodG).map(kortele).join('') || `<div class="tuscia">Dar nėra dingusių skelbimų — robotas lygina su ankstesne diena, tad pirmi duomenys atsiras po kito kasdienio nuskaitymo.</div>`;
+  $('daugiau-g').hidden = GG.length <= rodG; $('daugiau-g').textContent = `Rodyti daugiau (liko ${Math.max(0, GG.length - rodG)})`;
+  // parduota lentelė pagal modelį
+  const pm = RM.modeliai.map(m => ({ m, r: P.filter(s => s.modelis === m.id) })).filter(x => x.r.length);
+  $('l-parduota').innerHTML = pm.length ? '<tr><th>Modelis</th><th class="r">Parduota</th><th class="r">Per kiek d. (mediana)</th><th class="r">Kainų mediana</th><th class="r">Nuo – iki</th></tr>' +
+    pm.map(({ m, r }) => `<tr><td><b>${esc(pavadinimas(m))}</b></td><td class="r">${r.length}</td><td class="r">~${dienosTxt(mediana(r.map(s => s.dienos)))}</td><td class="r"><b>${eur(mediana(r.map(s => s.kaina)))}</b></td><td class="r">${eur(Math.min(...r.map(s => s.kaina)))} – ${eur(Math.max(...r.map(s => s.kaina)))}</td></tr>`).join('') : '';
+  $('parduota').innerHTML = P.map(kortele).join('') || '<div class="tuscia">Šiam modeliui pardavėjai nėra pažymėję parduotų skelbimų.</div>';
+  const dm = RM.modeliai.map(m => ({ m, r: D.filter(s => s.modelis === m.id), v: A.filter(s => s.modelis === m.id && svarus(s)) })).filter(x => x.r.length);
+  $('l-dauzti').innerHTML = dm.length ? '<tr><th>Modelis</th><th class="r">Daužtų</th><th class="r">Daužtų mediana</th><th class="r">Nedaužtų mediana</th><th class="r">Skirtumas</th><th class="r">Pigiausias daužtas</th></tr>' +
+    dm.map(({ m, r, v }) => { const a = mediana(r.map(s => s.kaina)), b = mediana(v.map(s => s.kaina)); return `<tr><td><b>${esc(pavadinimas(m))}</b></td><td class="r">${r.length}</td><td class="r"><b>${eur(a)}</b></td><td class="r">${eur(b)}</td><td class="r">${a && b ? '−' + eur(b - a) + ' (' + Math.round((1 - a / b) * 100) + ' %)' : '—'}</td><td class="r">${eur(Math.min(...r.map(s => s.kaina)))}</td></tr>`; }).join('') : '';
+  $('dauzti').innerHTML = D.slice(0, rodD).map(kortele).join('') || '<div class="tuscia">Nėra.</div>';
+  $('daugiau-d').hidden = D.length <= rodD; $('daugiau-d').textContent = `Rodyti daugiau (liko ${Math.max(0, D.length - rodD)})`;
+  $('itartini').innerHTML = I.map(kortele).join('') || '<div class="tuscia">Nėra.</div>';
+}
+$('f-mod').addEventListener('change', () => { rodD = 10; rodG = 10; piesk(); });
+$('daugiau-g').addEventListener('click', () => { rodG += 10; piesk(); });
+$('daugiau-d').addEventListener('click', () => { rodD += 10; piesk(); });
+piesk();
+</script>

@@ -1,0 +1,80 @@
+<meta charset="utf-8">
+<title>Rinkos monitorius</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="stilius.css">
+
+<main class="turinys">
+  <div class="antraste">
+    <div><h1>Lietuvos rinka: 8 modeliai, benzinas / hibridai / elektra</h1><div class="sub">Kiek prašo autoplius.lt, kiek skelbimų daužti, kiek laiko kabo — ir kurie skelbimai pigesni už rinką.</div></div>
+  </div>
+
+  <div class="stat-juosta" id="statai"></div>
+
+  <div class="paaisk">
+    <div><i style="background:var(--akcentas)"></i><div><b>Rinkos kaina</b>Ką rinka prašo už tokį pat nedaužtą auto su tais pačiais metais ir rida. Skaičiuojama tik iš švarių, Lietuvoje esančių skelbimų.</div></div>
+    <div><i style="background:var(--gera)"></i><div><b>Pigiau nei rinka</b>Nedaužtas skelbimas 12–35 % žemiau rinkos kainos. Verta pažiūrėti — bet perskaityk aprašymą.</div></div>
+    <div><i style="background:var(--bloga)"></i><div><b>Daužtas / dar ne LT</b>Pardavėjas pažymėjo „Daužtas“, aprašyme parašyta, kad daužtas, arba auto dar plaukia. Tai tavo konkurentai — jų kainos rodo, už kiek eina neremontuoti importai.</div></div>
+    <div><i style="background:var(--isp)"></i><div><b>Rinkoje ~N d.</b>Kiek dienų skelbimas kabo (įvertinta pagal skelbimo ID). Kuo mažiau — tuo greičiau modelis „sukasi“.</div></div>
+  </div>
+
+  <section class="sekc" style="margin-top:0">
+    <h2>Modeliai</h2>
+    <div class="apr">Spausk ant modelio — atsidarys jo skelbimai su filtrais, nuotraukomis, aprašymais ir analize. Skaičiai žemiau — tik nedaužti, Lietuvoje esantys skelbimai.</div>
+    <div class="mod-tinklas" id="modeliai"></div>
+  </section>
+
+  <section class="sekc">
+    <h2>Geriausi pasiūlymai šiandien</h2>
+    <div class="apr">Nedaužti skelbimai 12–35 % pigesni už rinką (be parduotų), surikiuoti pagal nuolaidą.</div>
+    <div class="sk-sarasas" id="geriausi"></div>
+    <button class="daugiau" id="geriausi-daugiau" hidden>Rodyti daugiau</button>
+  </section>
+</main>
+
+<script src="duomenys.js"></script>
+<script src="bendra.js"></script>
+<script>
+virsus('index');
+const S = RM.skelbimai, SV = S.filter(svarus);
+const gerieji = S.filter(geras).sort((a, b) => a.nuokrypis - b.nuokrypis);
+$('statai').innerHTML = [
+  ['Skelbimų iš viso', S.length, '8 modeliai · be dyzelių', ''],
+  ['Nedaužtų Lietuvoje', SV.length, 'iš jų skaičiuojama rinkos kaina', ''],
+  ['Daužtų / dar ne LT', S.filter(s => s.dauztas).length, Math.round(S.filter(s => s.dauztas).length / S.length * 100) + ' % visų skelbimų', 'bloga'],
+  ['Pigiau nei rinka', gerieji.length, '12–35 % žemiau rinkos kainos', 'gera'],
+  ['Iš JAV / Kanados', S.filter(s => s.importas).length, Math.round(S.filter(s => s.importas).length / S.length * 100) + ' % visų — importų rinka', ''],
+  ['Kabo (mediana)', dienosTxt(mediana(SV.map(s => s.dienos))), 'nedaužti skelbimai', ''],
+  ['Parduota per', parduotieji().length ? '~' + dienosTxt(mediana(parduotieji().map(s => s.dienos))) : '—', parduotieji().length + ' parduota / dingo iš rinkos', 'gera'],
+].map(x => `<div class="stat ${x[3]}"><div class="pav">${x[0]}</div><div class="sk num">${x[1]}</div><div class="past">${x[2]}</div></div>`).join('');
+
+$('modeliai').innerHTML = RM.modeliai.map(m => {
+  const visi = S.filter(s => s.modelis === m.id), rows = visi.filter(svarus);
+  const kainos = rows.map(r => r.kaina), med = mediana(kainos);
+  const ridos = rows.map(r => r.rida).filter(Boolean);
+  const dz = visi.filter(s => s.dauztas), g = visi.filter(geras).length;
+  const parduoti = parduotieji(m.id);
+  const top = m.variantai.slice(0, 3).map(v => `<span class="chip">${esc(v.pav)} <span style="color:var(--antrinis)">${v.n}</span></span>`).join('');
+  return `<a class="mod" href="modelis.html#${m.id}">
+    <div class="kunas">
+      <div class="pav">${esc(m.pav)}<small>${esc(m.karta)}</small></div>
+      <div class="med num">${eur(med)}<small>mediana (nedaužtų)</small></div>
+      <div class="eil"><span>Skelbimų nedaužtų / iš viso</span><b class="num">${rows.length} / ${visi.length}</b></div>
+      <div class="eil"><span>Kainos nuo – iki</span><b class="num">${kainos.length ? eur(Math.min(...kainos)) + ' – ' + eur(Math.max(...kainos)) : '—'}</b></div>
+      <div class="eil"><span>Vidutinė rida</span><b class="num">${km(vid(ridos))}</b></div>
+      <div class="eil"><span>Kabo rinkoje (mediana)</span><b class="num">~${dienosTxt(mediana(rows.map(s => s.dienos)))}</b></div>
+      <div class="eil dz"><span>Daužtų / dar ne LT</span><b class="num">${dz.length} (${Math.round(dz.length / Math.max(1, visi.length) * 100)} %)${dz.length ? ' · nuo ' + eur(Math.min(...dz.map(s => s.kaina))) : ''}</b></div>
+      <div class="eil"><span>Iš JAV / Kanados</span><b class="num">${visi.filter(s => s.importas).length} (${Math.round(visi.filter(s => s.importas).length / Math.max(1, visi.length) * 100)} %)</b></div>
+      <div class="eil"><span>Parduota / dingo iš rinkos</span><b class="num">${parduoti.length}${parduoti.length ? ' · per ~' + dienosTxt(mediana(parduoti.map(s => s.dienos))) : ''}</b></div>
+      <div class="chipai">${top}</div>
+      <div class="apacia"><span class="chip ${g ? 'zalia' : ''}">${g} pigiau nei rinka</span><span class="i">Žiūrėti skelbimus →</span></div>
+    </div></a>`;
+}).join('');
+
+let rodoma = 6;
+function pieskGeriausius() {
+  $('geriausi').innerHTML = gerieji.slice(0, rodoma).map(kortele).join('') || '<div class="tuscia">Šiandien nėra skelbimų žemiau rinkos.</div>';
+  $('geriausi-daugiau').hidden = gerieji.length <= rodoma;
+}
+$('geriausi-daugiau').addEventListener('click', () => { rodoma += 6; pieskGeriausius(); });
+pieskGeriausius();
+</script>
