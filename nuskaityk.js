@@ -21,13 +21,32 @@ const siandien = () => new Date().toISOString().slice(0, 10);
 const txt = html => cheerio.load('<div>' + (html || '').replace(/<[^>]+>/g, ' ') + '</div>')('div').text().replace(/\s+/g, ' ').trim();
 const t = ($, el, sel) => { const e = $(el).find(sel).first(); return e.length ? txt(e.html()) : ''; };
 
-let limitas = 0;
+let limitas = 0, METODAS = 'fetch';
+const { execFileSync, execSync } = require('child_process');
+async function uzklausa(url) { // -> {status, body: Buffer}
+  if (METODAS === 'fetch') {
+    const r = await fetch(url, { headers: HDR });
+    const body = Buffer.from(await r.arrayBuffer());
+    if (r.status === 403) {
+      log('403 su fetch:', body.toString('utf8').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+      log('perjungiu į curl_cffi (Chrome TLS imitacija)');
+      execSync('pip install -q curl_cffi', { stdio: 'inherit' }); METODAS = 'cffi';
+      return uzklausa(url);
+    }
+    return { status: r.status, body };
+  }
+  const out = execFileSync('python3', [path.join(ROOT, 'gauk.py'), url], { maxBuffer: 64e6 });
+  const nl = out.indexOf(10);
+  return { status: +out.subarray(0, nl).toString(), body: out.subarray(nl + 1) };
+}
 async function get(u, bin) {
+  const url = /^https?:/.test(u) ? u : 'https://autoplius.lt' + u;
   for (let a = 0; a < 4; a++) {
-    const r = await fetch('https://autoplius.lt' + u, { headers: HDR });
+    const r = await uzklausa(url);
     if (r.status === 429) { limitas++; log('429 — autoplius limitas, laukiu 5 min'); await sleep(300000); continue; }
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + u);
-    return bin ? Buffer.from(await r.arrayBuffer()) : await r.text();
+    if (r.status === 403 && a === 0) { log('403 ir su curl_cffi:', r.body.toString('utf8').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200)); }
+    if (r.status < 200 || r.status >= 300) throw new Error('HTTP ' + r.status + ' ' + u);
+    return bin ? r.body : r.body.toString('utf8');
   }
   throw new Error('429 nepraeina: ' + u);
 }
@@ -108,7 +127,7 @@ function detale(html) {
   for (const k in raw0) for (const r of raw0[k]) {
     if (!dabar.has(r.id) || spr[r.id] || !r.f || !r.f.length || !r.slug) continue;
     const fp = path.join(ROOT, 'foto', r.id + '.jpg'); if (fs.existsSync(fp)) continue;
-    try { const b = await fetch('https://autoplius-img.dgn.lt/ann_' + r.f[0] + '/' + r.slug + '.jpg', { headers: HDR }); if (b.ok) { fs.writeFileSync(fp, Buffer.from(await b.arrayBuffer())); fotoN++; } }
+    try { fs.writeFileSync(fp, await get('https://autoplius-img.dgn.lt/ann_' + r.f[0] + '/' + r.slug + '.jpg', true)); fotoN++; }
     catch (e) { log('foto nepavyko', r.id, e.message); }
     await sleep(400);
     if (fotoN >= 150) break;
